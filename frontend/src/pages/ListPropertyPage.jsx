@@ -1,0 +1,355 @@
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
+import api from '../services/api';
+import { useAuthStore } from '../store/auth.store';
+import { Spinner } from '../components/common/Loader';
+
+const MACEDONIAN_CITIES = ['Охрид','Скопје','Струга','Битола','Тетово','Крушево','Маврово','Гевгелија','Куманово','Кавадарци','Струмица','Штип','Велес','Кичево','Кочани','Дебар','Радовиш','Неготино','Делчево','Виница','Ресен','Берово','Кратово','Пробиштип','Богданци','Македонска Каменица','Валандово','Македонски Брод','Демир Капија','Пехчево','Демир Хисар'];
+const AMENITIES = ['WiFi','Паркинг','Клима','Греење','Кујна','Перална','ТВ','Балкон','Базен','Поглед на езеро','Поглед на планина'];
+const PROPERTY_TYPES = [
+  { value: 'apartment', label: '🏢 Апартман' },
+  { value: 'house', label: '🏡 Куќа' },
+  { value: 'villa', label: '🌟 Вила' },
+  { value: 'studio', label: '🛋️ Студио' },
+  { value: 'room', label: '🛏️ Соба' },
+  { value: 'hostel', label: '🏨 Хостел' },
+];
+const STEPS = ['Основни инфо', 'Локација и цена', 'Слики', 'Сметка'];
+
+export default function ListPropertyPage() {
+  const navigate = useNavigate();
+  const { isAuthenticated, user, setAuth } = useAuthStore();
+
+  const [step, setStep] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [previews, setPreviews] = useState([]);
+
+  const [form, setForm] = useState({
+    title: '', description: '', propertyType: 'apartment',
+    city: '', address: '', pricePerNight: '',
+    maxGuests: 2, bedrooms: 1, bathrooms: 1,
+    amenities: [], bookingType: 'online',
+  });
+
+  const [accountMode, setAccountMode] = useState('register');
+  const [accountForm, setAccountForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: '' });
+  const [accountError, setAccountError] = useState('');
+  const [showPass, setShowPass] = useState(false);
+
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const toggleAmenity = (a) => set('amenities', form.amenities.includes(a) ? form.amenities.filter((x) => x !== a) : [...form.amenities, a]);
+
+  const handleFiles = (files) => {
+    const arr = Array.from(files).filter((f) => f.type.startsWith('image/')).slice(0, 20);
+    setSelectedFiles(arr);
+    setPreviews([]);
+    arr.forEach((f) => {
+      const reader = new FileReader();
+      reader.onload = (e) => setPreviews((p) => [...p, e.target.result]);
+      reader.readAsDataURL(f);
+    });
+  };
+
+  const stepLabels = isAuthenticated ? ['Основни инфо', 'Локација и цена', 'Слики'] : STEPS;
+
+  const canProceed = () => {
+    if (step === 0) return form.title && form.description && form.propertyType;
+    if (step === 1) return form.city && form.address && form.pricePerNight > 0;
+    if (step === 2) return true;
+    return true;
+  };
+
+  const handleAccountSubmit = async () => {
+    setAccountError('');
+    try {
+      if (accountMode === 'register') {
+        if (accountForm.password !== accountForm.confirmPassword) { setAccountError('Лозинките не се совпаѓаат'); return false; }
+        const res = await api.post('/auth/register', { firstName: accountForm.firstName, lastName: accountForm.lastName, email: accountForm.email, phone: accountForm.phone, password: accountForm.password });
+        setAuth(res.data.user, res.data.accessToken);
+      } else {
+        const res = await api.post('/auth/login', { email: accountForm.email, password: accountForm.password });
+        setAuth(res.data.user, res.data.accessToken);
+      }
+      return true;
+    } catch (err) { setAccountError(err.response?.data?.error || 'Грешка'); return false; }
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      if (!isAuthenticated) {
+        const ok = await handleAccountSubmit();
+        if (!ok) { setLoading(false); return; }
+      }
+      const res = await api.post('/owner/listings', {
+        title: form.title, description: form.description, propertyType: form.propertyType,
+        city: form.city, address: form.address, pricePerNight: parseFloat(form.pricePerNight),
+        maxGuests: parseInt(form.maxGuests), bedrooms: parseInt(form.bedrooms), bathrooms: parseInt(form.bathrooms),
+        amenities: form.amenities, bookingType: form.bookingType,
+      });
+      if (selectedFiles.length > 0) {
+        const formData = new FormData();
+        selectedFiles.forEach((f) => formData.append('images', f));
+        await api.post(`/owner/listings/${res.data.id}/images`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      }
+      setSubmitted(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Грешка при поднесување');
+    } finally { setLoading(false); }
+  };
+
+  const eyePath = showPass
+    ? "M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+    : "M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z";
+
+  if (submitted) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-6">⏳</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">Огласот е поднесен!</h1>
+          <p className="text-gray-500 leading-relaxed mb-6">Твојот оглас е во преглед и ќе биде одобрен во рок од 24 часа.</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-sm text-blue-700 text-left">
+            <p className="font-semibold mb-1">Следни чекори:</p>
+            <ul className="space-y-1 list-disc list-inside">
+              <li>Нашиот тим ќе го прегледа твојот оглас</li>
+              <li>Ќе добиеш e-mail потврда</li>
+              <li>Управувај со огласот во твојата контролна табла</li>
+            </ul>
+          </div>
+          <div className="flex gap-3 justify-center">
+            <Link to="/owner" className="btn-primary rounded-xl px-6 py-3 font-semibold">Кон контролна табла →</Link>
+            <Link to="/" className="btn-outline rounded-xl px-6 py-3 font-semibold">Почетна</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Додај оглас</h1>
+        <p className="text-gray-500 text-sm">Пополни ги информациите за твојот простор</p>
+      </div>
+
+      {/* Steps */}
+      <div className="flex items-center gap-2 mb-8">
+        {stepLabels.map((s, i) => (
+          <div key={s} className="flex items-center gap-2 flex-1">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${i < step ? 'bg-brand-500 text-white' : i === step ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-500'}`}>
+              {i < step ? '✓' : i + 1}
+            </div>
+            <span className={`text-xs font-medium hidden sm:block ${i === step ? 'text-gray-900' : 'text-gray-400'}`}>{s}</span>
+            {i < stepLabels.length - 1 && <div className={`flex-1 h-px ${i < step ? 'bg-brand-500' : 'bg-gray-200'}`} />}
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6">
+
+        {/* Step 0 */}
+        {step === 0 && (
+          <>
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-3">Тип на сместување</p>
+              <div className="grid grid-cols-3 gap-2">
+                {PROPERTY_TYPES.map(({ value, label }) => (
+                  <button key={value} type="button" onClick={() => set('propertyType', value)}
+                    className={`p-3 rounded-xl border text-sm font-medium transition-all ${form.propertyType === value ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 hover:border-gray-400'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <input type="text" value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Наслов на огласот" className="input" maxLength={100} />
+            <textarea value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Опис на просторот..." rows={4} className="input resize-none" />
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Гости (макс)</p>
+                <input type="number" min="1" max="50" value={form.maxGuests} onChange={(e) => set('maxGuests', e.target.value)} className="input" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Спални</p>
+                <input type="number" min="0" max="20" value={form.bedrooms} onChange={(e) => set('bedrooms', e.target.value)} className="input" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Бањи</p>
+                <input type="number" min="0" max="10" value={form.bathrooms} onChange={(e) => set('bathrooms', e.target.value)} className="input" />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-3">Погодности</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {AMENITIES.map((a) => (
+                  <label key={a} className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all">
+                    <input type="checkbox" checked={form.amenities.includes(a)} onChange={() => toggleAmenity(a)} className="w-4 h-4 accent-brand-500" />
+                    <span className="text-sm text-gray-700">{a}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Booking type */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-1">Начин на резервирање</p>
+              <p className="text-xs text-gray-500 mb-3">Избери како гостите ќе ги праќаат резервациите.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button type="button" onClick={() => set('bookingType', 'online')}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${form.bookingType === 'online' ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-400'}`}>
+                  <div className="text-2xl mb-2">📅</div>
+                  <p className="font-semibold text-gray-900 text-sm">Онлајн резервација</p>
+                  <p className="text-xs text-gray-500 mt-1">Гостите пополнуваат форма. Ти добиваш барање и го потврдуваш.</p>
+                  {form.bookingType === 'online' && <span className="inline-block mt-2 text-xs font-bold text-brand-600">✓ Избрано</span>}
+                </button>
+                <button type="button" onClick={() => set('bookingType', 'contact')}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${form.bookingType === 'contact' ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-400'}`}>
+                  <div className="text-2xl mb-2">📞</div>
+                  <p className="font-semibold text-gray-900 text-sm">Контакт резервација</p>
+                  <p className="text-xs text-gray-500 mt-1">Гостите гледаат само твој телефон и е-маил.</p>
+                  {form.bookingType === 'contact' && <span className="inline-block mt-2 text-xs font-bold text-brand-600">✓ Избрано</span>}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Step 1 */}
+        {step === 1 && (
+          <>
+            <input list="city-list-form" value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="Град" className="input" />
+            <datalist id="city-list-form">{MACEDONIAN_CITIES.map((c) => <option key={c} value={c} />)}</datalist>
+            <div>
+              <input type="text" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Адреса" className="input" />
+              <p className="text-xs text-gray-400 mt-1">Точната адреса е видлива само по потврдена резервација</p>
+            </div>
+            <div className="relative">
+              <input type="number" value={form.pricePerNight} onChange={(e) => set('pricePerNight', e.target.value)} placeholder="Цена по ноќ" min="0" className="input pr-16" />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">МКД</span>
+            </div>
+          </>
+        )}
+
+        {/* Step 2 */}
+        {step === 2 && (
+          <>
+            <div onClick={() => document.getElementById('img-input').click()}
+              className="border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-all">
+              <div className="text-4xl mb-3">📷</div>
+              <p className="text-sm font-semibold text-gray-600">Кликни за да додадеш слики</p>
+              <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP · макс. 10MB · до 20 слики</p>
+              <input id="img-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+            </div>
+            {previews.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold text-gray-900 mb-2">{previews.length} слики избрани</p>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {previews.map((src, i) => (
+                    <div key={i} className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative">
+                      <img src={src} alt="" className="w-full h-full object-cover" />
+                      {i === 0 && <span className="absolute bottom-1 left-1 bg-brand-500 text-white text-xs px-1.5 py-0.5 rounded-md font-medium">Насловна</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Step 3 — Account (only if not logged in) */}
+        {step === 3 && !isAuthenticated && (
+          <>
+            <div>
+              <h2 className="font-bold text-gray-900 text-lg mb-1">Создај сметка</h2>
+              <p className="text-gray-500 text-sm mb-4">Потребна е сметка за да го управуваш твојот оглас.</p>
+            </div>
+
+            <div className="flex rounded-xl border border-gray-200 p-1">
+              {[{ value: 'register', label: 'Нова сметка' }, { value: 'login', label: 'Веќе имам сметка' }].map(({ value, label }) => (
+                <button key={value} type="button" onClick={() => { setAccountMode(value); setAccountError(''); }}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${accountMode === value ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-800'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {accountMode === 'register' ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" required value={accountForm.firstName} onChange={(e) => setAccountForm({ ...accountForm, firstName: e.target.value })} placeholder="Име" className="input" />
+                  <input type="text" required value={accountForm.lastName} onChange={(e) => setAccountForm({ ...accountForm, lastName: e.target.value })} placeholder="Презиме" className="input" />
+                </div>
+                <input type="email" required value={accountForm.email} onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })} placeholder="Е-маил" className="input" />
+                <input type="tel" required value={accountForm.phone} onChange={(e) => setAccountForm({ ...accountForm, phone: e.target.value })} placeholder="Телефон (+389...)" className="input" />
+                <div className="relative">
+                  <input type={showPass ? 'text' : 'password'} required minLength={8} value={accountForm.password} onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })} placeholder="Лозинка (мин. 8 знаци)" className="input pr-11" />
+                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={eyePath} /></svg>
+                  </button>
+                </div>
+                <div className="relative">
+                  <input type={showPass ? 'text' : 'password'} required value={accountForm.confirmPassword} onChange={(e) => setAccountForm({ ...accountForm, confirmPassword: e.target.value })} placeholder="Потврди лозинка" className="input pr-11" />
+                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={eyePath} /></svg>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <input type="email" required value={accountForm.email} onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })} placeholder="Е-маил" className="input" />
+                <div className="relative">
+                  <input type={showPass ? 'text' : 'password'} required value={accountForm.password} onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })} placeholder="Лозинка" className="input pr-11" />
+                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={eyePath} /></svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {accountError && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{accountError}</div>}
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+              <p className="font-semibold mb-1">⏳ Чекање на одобрување</p>
+              <p>По поднесувањето, нашиот тим ќе го прегледа огласот во рок од 24 часа.</p>
+            </div>
+          </>
+        )}
+
+        {step === 3 && isAuthenticated && (
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800">
+              ✓ Најавен/а си како <strong>{user?.firstName} {user?.lastName}</strong>. Огласот ќе биде поврзан со твојата сметка.
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+              <p className="font-semibold mb-1">⏳ Чекање на одобрување</p>
+              <p>По поднесувањето, нашиот тим ќе го прегледа огласот во рок од 24 часа.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div className="flex justify-between pt-4 border-t border-gray-100">
+          <button type="button" onClick={() => setStep(step - 1)} disabled={step === 0} className="btn-outline rounded-xl px-6 py-2.5 text-sm font-semibold disabled:opacity-0">
+            ← Назад
+          </button>
+          {step < (isAuthenticated ? 2 : 3) ? (
+            <button type="button" onClick={() => setStep(step + 1)} disabled={!canProceed()} className="btn-primary rounded-xl px-8 py-2.5 text-sm font-semibold disabled:opacity-50">
+              Следно →
+            </button>
+          ) : (
+            <button type="button" onClick={handleSubmit} disabled={loading} className="btn-primary rounded-xl px-8 py-2.5 text-sm font-semibold disabled:opacity-50 flex items-center gap-2">
+              {loading ? <><Spinner size="sm" /> Поднесување...</> : 'Поднеси оглас'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
