@@ -8,3 +8,5 @@ dist/
 frontend/dist/
 .DS_Store
 *.log
+backend/uploads/*
+!backend/uploads/.gitkeep

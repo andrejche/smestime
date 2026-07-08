@@ -131,8 +131,12 @@ export default function OwnerEditListingPage() {
         {/* Location & price */}
         <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
           <h2 className="font-semibold text-gray-900">Локација и цена</h2>
-          <input list="city-list" value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="Град" className="input" />
-          <datalist id="city-list">{CITIES.map((c) => <option key={c} value={c} />)}</datalist>
+          <select value={form.city} onChange={(e) => set('city', e.target.value)} className="input">
+            <option value="" disabled>Избери град</option>
+            {CITIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
           <input type="text" required value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Адреса" className="input" />
           <div className="relative">
             <input type="number" required min="0" value={form.pricePerNight} onChange={(e) => set('pricePerNight', e.target.value)} placeholder="Цена по ноќ" className="input pr-14" />

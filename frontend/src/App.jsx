@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
+import { useEffect } from 'react';
 
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
@@ -20,8 +21,8 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 
 import OwnerDashboard from './pages/owner/OwnerDashboard';
 import OwnerListingsPage from './pages/owner/OwnerListingsPage';
-import OwnerImagesPage from './pages/owner/OwnerImagesPage';
 import OwnerEditListingPage from './pages/owner/OwnerEditListingPage';
+import OwnerImagesPage from './pages/owner/OwnerImagesPage';
 import OwnerBookingsPage from './pages/owner/OwnerBookingsPage';
 import OwnerProfilePage from './pages/owner/OwnerProfilePage';
 
@@ -33,6 +34,15 @@ import AdminUsersPage from './pages/admin/AdminUsersPage';
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
+
+// Scroll to top on every route change
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 function PublicLayout({ children }) {
   return (
@@ -57,6 +67,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           {/* Public */}
           <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />

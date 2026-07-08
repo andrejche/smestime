@@ -1,37 +1,42 @@
-import cloudinary from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
-import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOADS_DIR = path.join(__dirname, '../../uploads');
 
-const cloudinaryV2 = cloudinary.v2;
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
-cloudinaryV2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinaryV2,
-  params: {
-    folder: 'smestime/properties',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    transformation: [{ width: 1200, height: 800, crop: 'limit', quality: 'auto' }],
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${unique}${ext}`);
   },
 });
+
+const fileFilter = (req, file, cb) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+  if (allowed.includes(file.mimetype)) cb(null, true);
+  else cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'Само JPG, PNG или WebP слики се дозволени'));
+};
 
 export const upload = multer({
   storage,
+  fileFilter,
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'), false);
-    }
-  },
 });
 
-export { cloudinaryV2 as cloudinary };
+export const deleteFile = (filename) => {
+  if (!filename) return;
+  const filePath = path.join(UPLOADS_DIR, filename);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+};
+
+export const cloudinary = {
+  uploader: { destroy: async (publicId) => deleteFile(publicId) },
+};

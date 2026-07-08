@@ -7,12 +7,33 @@ import { useAuthStore } from '../store/auth.store';
 import { Spinner } from '../components/common/Loader';
 import logo from '../assets/logo.png';
 
+function FieldError({ error }) {
+  if (!error) return null;
+  return <p className="text-xs text-red-500 mt-1 ml-1">{error}</p>;
+}
+
 export default function OwnerRegisterPage() {
   const { setAuth } = useAuthStore();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({
+    firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: ''
+  });
   const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+
+  const validate = () => {
+    const e = {};
+    if (!form.firstName.trim()) e.firstName = 'Името е задолжително';
+    if (!form.lastName.trim()) e.lastName = 'Презимето е задолжително';
+    if (!form.email.trim()) e.email = 'Е-маилот е задолжителен';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Внеси валидна е-маил адреса';
+    if (!form.phone.trim()) e.phone = 'Телефонот е задолжителен';
+    if (!form.password) e.password = 'Лозинката е задолжителна';
+    else if (form.password.length < 8) e.password = 'Лозинката мора да има најмалку 8 знаци';
+    if (!form.confirmPassword) e.confirmPassword = 'Потврди ја лозинката';
+    else if (form.password !== form.confirmPassword) e.confirmPassword = 'Лозинките не се совпаѓаат';
+    return e;
+  };
 
   const register = useMutation({
     mutationFn: (data) => api.post('/auth/register', data).then((r) => r.data),
@@ -21,14 +42,23 @@ export default function OwnerRegisterPage() {
       toast.success('Добредојде! Сметката е создадена.');
       navigate('/owner');
     },
-    onError: (err) => setError(err.response?.data?.error || 'Грешка при регистрација'),
+    onError: (err) => {
+      const msg = err.response?.data?.error || 'Грешка при регистрација';
+      const field = err.response?.data?.field;
+      if (field) setErrors((p) => ({ ...p, [field]: msg }));
+      else setErrors({ general: msg });
+    },
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (form.password !== form.confirmPassword) { setError('Лозинките не се совпаѓаат'); return; }
-    setError('');
-    register.mutate({ firstName: form.firstName, lastName: form.lastName, email: form.email, phone: form.phone, password: form.password });
+    const errs = validate();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
+    register.mutate({
+      firstName: form.firstName, lastName: form.lastName,
+      email: form.email, phone: form.phone, password: form.password,
+    });
   };
 
   const eyePath = showPass
@@ -40,34 +70,68 @@ export default function OwnerRegisterPage() {
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-2xl border border-gray-200 p-8">
           <div className="text-center mb-8">
-            <Link to="/">
-              <img src={logo} alt="SmestiMe" className="h-10 w-auto mx-auto mb-4" />
-            </Link>
+            <Link to="/"><img src={logo} alt="SmestiMe" className="h-10 w-auto mx-auto mb-4" /></Link>
             <h1 className="text-2xl font-bold text-gray-900">Регистрација</h1>
             <p className="text-gray-500 text-sm mt-1">Создај сметка за домаќини</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <input type="text" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="Име" className="input" />
-              <input type="text" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="Презиме" className="input" />
-            </div>
-            <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Е-маил" className="input" autoComplete="email" />
-            <input type="tel" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Телефон (+389...)" className="input" />
-            <div className="relative">
-              <input type={showPass ? 'text' : 'password'} required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Лозинка (мин. 8 знаци)" className="input pr-11" />
-              <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-1">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={eyePath} /></svg>
-              </button>
-            </div>
-            <div className="relative">
-              <input type={showPass ? 'text' : 'password'} required value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} placeholder="Потврди лозинка" className="input pr-11" />
-              <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-1">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={eyePath} /></svg>
-              </button>
+              <div>
+                <input type="text" value={form.firstName}
+                  onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))}
+                  placeholder="Име" className={`input ${errors.firstName ? 'input-error' : ''}`} />
+                <FieldError error={errors.firstName} />
+              </div>
+              <div>
+                <input type="text" value={form.lastName}
+                  onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))}
+                  placeholder="Презиме" className={`input ${errors.lastName ? 'input-error' : ''}`} />
+                <FieldError error={errors.lastName} />
+              </div>
             </div>
 
-            {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</div>}
+            <div>
+              <input type="text" value={form.email}
+                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                placeholder="Е-маил" className={`input ${errors.email ? 'input-error' : ''}`} autoComplete="email" />
+              <FieldError error={errors.email} />
+            </div>
+
+            <div>
+              <input type="tel" value={form.phone}
+                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                placeholder="Телефон (пр. 071 234 567)" className={`input ${errors.phone ? 'input-error' : ''}`} />
+              <FieldError error={errors.phone} />
+            </div>
+
+            <div>
+              <div className="relative">
+                <input type={showPass ? 'text' : 'password'} value={form.password}
+                  onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                  placeholder="Лозинка (мин. 8 знаци)" className={`input pr-11 ${errors.password ? 'input-error' : ''}`} />
+                <button type="button" onClick={() => setShowPass((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-1">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={eyePath} /></svg>
+                </button>
+              </div>
+              <FieldError error={errors.password} />
+            </div>
+
+            <div>
+              <div className="relative">
+                <input type={showPass ? 'text' : 'password'} value={form.confirmPassword}
+                  onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                  placeholder="Потврди лозинка" className={`input pr-11 ${errors.confirmPassword ? 'input-error' : ''}`} />
+                <button type="button" onClick={() => setShowPass((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-1">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={eyePath} /></svg>
+                </button>
+              </div>
+              <FieldError error={errors.confirmPassword} />
+            </div>
+
+            {errors.general && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{errors.general}</div>
+            )}
 
             <button type="submit" disabled={register.isPending} className="btn-primary w-full py-3 rounded-xl text-sm font-bold">
               {register.isPending ? <Spinner size="sm" /> : 'Регистрирај се'}

@@ -1,5 +1,12 @@
 import { query } from '../config/db.js';
-import { cloudinary } from '../config/cloudinary.js';
+import { deleteFile } from '../config/cloudinary.js';
+import path from 'path';
+
+const getImageUrl = (req, filename) => {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+  return `${protocol}://${host}/uploads/${filename}`;
+};
 
 export const getMyListings = async (req, res, next) => {
   try {
@@ -8,7 +15,7 @@ export const getMyListings = async (req, res, next) => {
         (SELECT url FROM property_images WHERE property_id = p.id AND is_primary = true LIMIT 1) as primary_image,
         (SELECT COUNT(*) FROM bookings WHERE property_id = p.id AND status = 'pending') as pending_bookings,
         (SELECT COUNT(*) FROM bookings WHERE property_id = p.id AND status = 'confirmed') as confirmed_bookings
-       FROM properties p WHERE p.owner_id = $1 ORDER BY p.created_at DESC`,
+       FROM properties p WHERE p.owner_id = $1 ORDER BY p.updated_at DESC`,
       [req.user.id]
     );
     res.json(result.rows);
@@ -59,7 +66,7 @@ export const deleteListing = async (req, res, next) => {
     const existing = await query(`SELECT id FROM properties WHERE id = $1 AND owner_id = $2`, [id, req.user.id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Огласот не е пронајден' });
     const images = await query(`SELECT public_id FROM property_images WHERE property_id = $1`, [id]);
-    for (const img of images.rows) { if (img.public_id) await cloudinary.uploader.destroy(img.public_id).catch(() => {}); }
+    for (const img of images.rows) { if (img.public_id) deleteFile(img.public_id); }
     await query(`DELETE FROM properties WHERE id = $1 AND owner_id = $2`, [id, req.user.id]);
     res.json({ message: 'Избришан' });
   } catch (err) { next(err); }
@@ -71,13 +78,20 @@ export const uploadImages = async (req, res, next) => {
     const existing = await query(`SELECT id FROM properties WHERE id = $1 AND owner_id = $2`, [id, req.user.id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Огласот не е пронајден' });
     if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'Нема слики' });
+
     const countRes = await query(`SELECT COUNT(*) FROM property_images WHERE property_id = $1`, [id]);
     const currentCount = parseInt(countRes.rows[0].count);
     const hasPrimary = await query(`SELECT id FROM property_images WHERE property_id = $1 AND is_primary = true`, [id]);
     const images = [];
+
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
-      const r = await query(`INSERT INTO property_images (property_id, url, public_id, is_primary, sort_order) VALUES ($1,$2,$3,$4,$5) RETURNING *`, [id, file.path, file.filename, hasPrimary.rows.length === 0 && i === 0, currentCount + i]);
+      const url = getImageUrl(req, file.filename);
+      const isPrimary = hasPrimary.rows.length === 0 && i === 0;
+      const r = await query(
+        `INSERT INTO property_images (property_id, url, public_id, is_primary, sort_order) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+        [id, url, file.filename, isPrimary, currentCount + i]
+      );
       images.push(r.rows[0]);
     }
     res.status(201).json(images);
@@ -87,10 +101,13 @@ export const uploadImages = async (req, res, next) => {
 export const deleteImage = async (req, res, next) => {
   try {
     const { id, imageId } = req.params;
-    const result = await query(`SELECT pi.* FROM property_images pi JOIN properties p ON pi.property_id = p.id WHERE pi.id = $1 AND pi.property_id = $2 AND p.owner_id = $3`, [imageId, id, req.user.id]);
+    const result = await query(
+      `SELECT pi.* FROM property_images pi JOIN properties p ON pi.property_id = p.id WHERE pi.id = $1 AND pi.property_id = $2 AND p.owner_id = $3`,
+      [imageId, id, req.user.id]
+    );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Сликата не е пронајдена' });
     const img = result.rows[0];
-    if (img.public_id) await cloudinary.uploader.destroy(img.public_id).catch(() => {});
+    if (img.public_id) deleteFile(img.public_id);
     await query(`DELETE FROM property_images WHERE id = $1`, [imageId]);
     if (img.is_primary) {
       await query(`UPDATE property_images SET is_primary = true WHERE id = (SELECT id FROM property_images WHERE property_id = $1 ORDER BY sort_order LIMIT 1)`, [id]);
@@ -105,7 +122,10 @@ export const getMyBookings = async (req, res, next) => {
     const params = [req.user.id];
     let statusFilter = '';
     if (status) { params.push(status); statusFilter = `AND b.status = $${params.length}`; }
-    const result = await query(`SELECT b.*, p.title as property_title, p.city FROM bookings b JOIN properties p ON b.property_id = p.id WHERE p.owner_id = $1 ${statusFilter} ORDER BY b.created_at DESC`, params);
+    const result = await query(
+      `SELECT b.*, p.title as property_title, p.city FROM bookings b JOIN properties p ON b.property_id = p.id WHERE p.owner_id = $1 ${statusFilter} ORDER BY b.created_at DESC`,
+      params
+    );
     res.json(result.rows);
   } catch (err) { next(err); }
 };
@@ -114,7 +134,10 @@ export const updateBookingStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const check = await query(`SELECT b.id FROM bookings b JOIN properties p ON b.property_id = p.id WHERE b.id = $1 AND p.owner_id = $2`, [id, req.user.id]);
+    const check = await query(
+      `SELECT b.id FROM bookings b JOIN properties p ON b.property_id = p.id WHERE b.id = $1 AND p.owner_id = $2`,
+      [id, req.user.id]
+    );
     if (check.rows.length === 0) return res.status(404).json({ error: 'Резервацијата не е пронајдена' });
     const result = await query(`UPDATE bookings SET status = $1 WHERE id = $2 RETURNING *`, [status, id]);
     res.json(result.rows[0]);
@@ -131,39 +154,25 @@ export const getProfile = async (req, res, next) => {
 export const updateProfile = async (req, res, next) => {
   try {
     const { firstName, lastName, phone } = req.body;
-    const result = await query(`UPDATE users SET first_name=COALESCE($1,first_name), last_name=COALESCE($2,last_name), phone=COALESCE($3,phone) WHERE id=$4 RETURNING id, email, first_name, last_name, phone, role`, [firstName, lastName, phone, req.user.id]);
+    const result = await query(
+      `UPDATE users SET first_name=COALESCE($1,first_name), last_name=COALESCE($2,last_name), phone=COALESCE($3,phone) WHERE id=$4 RETURNING id, email, first_name, last_name, phone, role`,
+      [firstName, lastName, phone, req.user.id]
+    );
     res.json(result.rows[0]);
   } catch (err) { next(err); }
 };
 
-// POST /api/owner/listings/:id/renew
 export const renewListing = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    const existing = await query(
-      `SELECT id, updated_at FROM properties WHERE id = $1 AND owner_id = $2`,
-      [id, req.user.id]
-    );
+    const existing = await query(`SELECT id, updated_at FROM properties WHERE id = $1 AND owner_id = $2`, [id, req.user.id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Огласот не е пронајден' });
-
-    const lastRenewed = new Date(existing.rows[0].updated_at);
-    const hoursSince = (Date.now() - lastRenewed.getTime()) / (1000 * 60 * 60);
-
+    const hoursSince = (Date.now() - new Date(existing.rows[0].updated_at).getTime()) / (1000 * 60 * 60);
     if (hoursSince < 24) {
       const hoursLeft = Math.ceil(24 - hoursSince);
-      return res.status(429).json({
-        error: `Можеш да обновиш за ${hoursLeft} ${hoursLeft === 1 ? 'час' : 'часа'}`,
-        hoursLeft,
-      });
+      return res.status(429).json({ error: `Можеш да обновиш за ${hoursLeft} ${hoursLeft === 1 ? 'час' : 'часа'}`, hoursLeft });
     }
-
-    // Bump updated_at to NOW() so it appears at top
-    await query(
-      `UPDATE properties SET updated_at = NOW() WHERE id = $1 AND owner_id = $2`,
-      [id, req.user.id]
-    );
-
+    await query(`UPDATE properties SET updated_at = NOW() WHERE id = $1 AND owner_id = $2`, [id, req.user.id]);
     res.json({ message: 'Огласот е обновен!' });
   } catch (err) { next(err); }
 };
