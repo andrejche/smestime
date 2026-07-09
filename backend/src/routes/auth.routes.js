@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { register, login, refreshToken, logout, getMe, forgotPassword, resetPassword } from '../controllers/auth.controller.js';
+import {
+  register, login, refreshToken, logout, getMe,
+  forgotPassword, resetPassword, verifyEmail, resendVerification,
+} from '../controllers/auth.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 
@@ -20,6 +23,8 @@ router.post('/login', [
   validate,
 ], login);
 
+router.post('/verify-email', verifyEmail);
+router.post('/resend-verification', resendVerification);
 router.post('/refresh', refreshToken);
 router.post('/logout', logout);
 router.get('/me', authenticate, getMe);

@@ -18,6 +18,7 @@ import LoginPage from './pages/OwnerLoginPage';
 import OwnerRegisterPage from './pages/OwnerRegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 
 import OwnerDashboard from './pages/owner/OwnerDashboard';
 import OwnerListingsPage from './pages/owner/OwnerListingsPage';
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="/owner/register" element={<PublicLayout><OwnerRegisterPage /></PublicLayout>} />
           <Route path="/forgot-password" element={<PublicLayout><ForgotPasswordPage /></PublicLayout>} />
           <Route path="/reset-password" element={<PublicLayout><ResetPasswordPage /></PublicLayout>} />
+          <Route path="/verify-email" element={<PublicLayout><VerifyEmailPage /></PublicLayout>} />
 
           {/* Owner dashboard */}
           <Route path="/owner" element={

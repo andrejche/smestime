@@ -4,6 +4,7 @@ import {
   generateAccessToken, generateRefreshToken,
   saveRefreshToken, verifyRefreshToken, invalidateRefreshToken,
 } from '../utils/jwt.js';
+import { sendWelcomeEmail, sendPasswordReset, sendVerificationEmail } from '../services/email.service.js';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -21,20 +22,78 @@ export const register = async (req, res, next) => {
     const { email, password, firstName, lastName, phone } = req.body;
     const existing = await query(`SELECT id FROM users WHERE email = $1`, [email.toLowerCase()]);
     if (existing.rows.length > 0) return res.status(409).json({ error: 'Е-маил адресата е веќе во употреба' });
+
     const passwordHash = await bcrypt.hash(password, 12);
+    const verificationToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+
     const result = await query(
-      `INSERT INTO users (email, password_hash, first_name, last_name, phone, role, is_active) VALUES ($1,$2,$3,$4,$5,'owner',true) RETURNING id, email, first_name, last_name, role`,
-      [email.toLowerCase(), passwordHash, firstName, lastName, phone || null]
+      `INSERT INTO users (email, password_hash, first_name, last_name, phone, role, is_active, email_verified, verification_token)
+       VALUES ($1,$2,$3,$4,$5,'owner',true,false,$6)
+       RETURNING id, email, first_name, last_name, role, email_verified`,
+      [email.toLowerCase(), passwordHash, firstName, lastName, phone || null, verificationToken]
     );
+
     const user = result.rows[0];
+
+    // Send verification email
+    const verifyLink = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+    sendVerificationEmail({ to: email, firstName, verifyLink }).catch(console.error);
+
+    res.status(201).json({
+      message: 'Сметката е создадена. Провери го е-маилот за потврда.',
+      emailVerificationRequired: true,
+    });
+  } catch (err) { next(err); }
+};
+
+export const verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    const result = await query(
+      `UPDATE users SET email_verified = TRUE, verification_token = NULL
+       WHERE verification_token = $1 AND email_verified = FALSE
+       RETURNING id, email, first_name, last_name, role`,
+      [token]
+    );
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Невалиден или веќе искористен токен' });
+    }
+    const user = result.rows[0];
+
+    // Send welcome email after verification
+    sendWelcomeEmail({ to: user.email, firstName: user.first_name }).catch(console.error);
+
+    // Auto login after verification
     const accessToken = generateAccessToken(user.id, user.role);
     const refreshToken = generateRefreshToken(user.id);
     await saveRefreshToken(user.id, refreshToken);
     setRefreshCookie(res, refreshToken);
-    res.status(201).json({
+
+    res.json({
+      message: 'Е-маилот е потврден!',
       user: { id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role },
       accessToken,
     });
+  } catch (err) { next(err); }
+};
+
+export const resendVerification = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const result = await query(
+      `SELECT id, first_name, email_verified FROM users WHERE email = $1`,
+      [email.toLowerCase()]
+    );
+    if (result.rows.length === 0) return res.json({ message: 'Ако е-маилот постои, ќе добиеш линк.' });
+    if (result.rows[0].email_verified) return res.json({ message: 'Е-маилот е веќе потврден.' });
+
+    const verificationToken = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+    await query(`UPDATE users SET verification_token = $1 WHERE id = $2`, [verificationToken, result.rows[0].id]);
+
+    const verifyLink = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
+    sendVerificationEmail({ to: email, firstName: result.rows[0].first_name, verifyLink }).catch(console.error);
+
+    res.json({ message: 'Линкот за потврда е испратен повторно.' });
   } catch (err) { next(err); }
 };
 
@@ -42,7 +101,8 @@ export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const result = await query(
-      `SELECT id, email, password_hash, first_name, last_name, role, is_active FROM users WHERE email = $1`,
+      `SELECT id, email, password_hash, first_name, last_name, role, is_active, email_verified
+       FROM users WHERE email = $1`,
       [email.toLowerCase()]
     );
     const user = result.rows[0];
@@ -50,6 +110,13 @@ export const login = async (req, res, next) => {
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Невалидни податоци' });
     if (!user.is_active) return res.status(401).json({ error: 'Сметката е деактивирана' });
+    if (!user.email_verified) {
+      return res.status(403).json({
+        error: 'Е-маилот не е потврден. Провери го твојот inbox.',
+        emailVerificationRequired: true,
+        email: user.email,
+      });
+    }
     const accessToken = generateAccessToken(user.id, user.role);
     const refreshToken = generateRefreshToken(user.id);
     await saveRefreshToken(user.id, refreshToken);
@@ -105,14 +172,15 @@ export const getMe = async (req, res) => {
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
-    const result = await query(`SELECT id FROM users WHERE email = $1`, [email.toLowerCase()]);
+    const result = await query(`SELECT id, first_name FROM users WHERE email = $1`, [email.toLowerCase()]);
     if (result.rows.length === 0) return res.json({ message: 'Ако е-маилот постои, ќе добиеш линк.' });
     const userId = result.rows[0].id;
     const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
     await query(`DELETE FROM password_resets WHERE user_id = $1`, [userId]);
     await query(`INSERT INTO password_resets (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '1 hour')`, [userId, token]);
-    const resetLink = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
-    res.json({ message: 'Токенот е генериран (DEV режим)', resetLink, token });
+    const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
+    await sendPasswordReset({ to: email, resetLink });
+    res.json({ message: 'Линкот е испратен на твојот е-маил.' });
   } catch (err) { next(err); }
 };
 
