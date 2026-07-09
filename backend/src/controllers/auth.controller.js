@@ -28,7 +28,7 @@ export const register = async (req, res, next) => {
 
     const result = await query(
       `INSERT INTO users (email, password_hash, first_name, last_name, phone, role, is_active, email_verified, verification_token)
-       VALUES ($1,$2,$3,$4,$5,'owner',true,false,$6)
+      VALUES ($1,$2,$3,$4,$5,'owner',false,false,$6)
        RETURNING id, email, first_name, last_name, role, email_verified`,
       [email.toLowerCase(), passwordHash, firstName, lastName, phone || null, verificationToken]
     );
@@ -50,9 +50,9 @@ export const verifyEmail = async (req, res, next) => {
   try {
     const { token } = req.body;
     const result = await query(
-      `UPDATE users SET email_verified = TRUE, verification_token = NULL
-       WHERE verification_token = $1 AND email_verified = FALSE
-       RETURNING id, email, first_name, last_name, role`,
+      `UPDATE users SET email_verified = TRUE, is_active = TRUE, verification_token = NULL
+      WHERE verification_token = $1 AND email_verified = FALSE
+      RETURNING id, email, first_name, last_name, role`,
       [token]
     );
     if (result.rows.length === 0) {
@@ -109,7 +109,6 @@ export const login = async (req, res, next) => {
     if (!user || !user.password_hash) return res.status(401).json({ error: 'Невалидни податоци' });
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Невалидни податоци' });
-    if (!user.is_active) return res.status(401).json({ error: 'Сметката е деактивирана' });
     if (!user.email_verified) {
       return res.status(403).json({
         error: 'Е-маилот не е потврден. Провери го твојот inbox.',
@@ -117,6 +116,7 @@ export const login = async (req, res, next) => {
         email: user.email,
       });
     }
+    if (!user.is_active) return res.status(401).json({ error: 'Сметката е деактивирана' });
     const accessToken = generateAccessToken(user.id, user.role);
     const refreshToken = generateRefreshToken(user.id);
     await saveRefreshToken(user.id, refreshToken);
