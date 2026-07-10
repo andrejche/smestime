@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth.store';
 import api from '../services/api';
 import { Spinner } from '../components/common/Loader';
@@ -12,6 +12,8 @@ export default function VerifyEmailPage() {
   const [status, setStatus] = useState('loading'); // loading | success | error
   const [error, setError] = useState('');
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     if (!token) { setStatus('error'); setError('Невалиден линк'); return; }
     api.post('/auth/verify-email', { token })
@@ -20,6 +22,7 @@ export default function VerifyEmailPage() {
           setAuth(res.data.user, res.data.accessToken);
         }
         setStatus('success');
+        setTimeout(() => navigate('/owner'), 2000);
       })
       .catch((err) => {
         setStatus('error');
@@ -42,16 +45,14 @@ export default function VerifyEmailPage() {
             </>
           )}
 
-          {status === 'success' && (
-            <>
-              <div className="text-5xl mb-4">✅</div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Е-маилот е потврден!</h1>
-              <p className="text-gray-500 text-sm mb-6">Твојата сметка е активирана. Сега можеш да додаваш огласи.</p>
-              <Link to="/owner" className="btn-primary rounded-xl px-6 py-3 text-sm font-bold w-full block">
-                Кон контролна табла →
-              </Link>
-            </>
-          )}
+        {status === 'success' && (
+          <>
+            <div className="text-5xl mb-4">✅</div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Е-маилот е потврден!</h1>
+            <p className="text-gray-500 text-sm mb-6">Пренасочување кон контролна табла...</p>
+            <Spinner size="md" />
+          </>
+        )}
 
           {status === 'error' && (
             <>
