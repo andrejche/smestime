@@ -1,11 +1,15 @@
 import { query } from '../config/db.js';
 import { deleteFile } from '../config/cloudinary.js';
-import path from 'path';
+import { createSocialImage, deleteSocialImage } from '../utils/socialImage.js';
 
 const getImageUrl = (req, filename) => {
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-  const host = req.headers['x-forwarded-host'] || req.get('host');
-  return `${protocol}://${host}/uploads/${filename}`;
+  const base = process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`;
+  return `${base}/uploads/${filename}`;
+};
+
+const getSocialImageUrl = (req, filename) => {
+  const base = process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`;
+  return `${base}/uploads/social/${filename}`;
 };
 
 export const getMyListings = async (req, res, next) => {
@@ -34,13 +38,16 @@ export const getMyListing = async (req, res, next) => {
 
 export const createListing = async (req, res, next) => {
   try {
-    const { title, description, propertyType, city, address, pricePerNight, maxGuests, bedrooms, bathrooms, amenities, rules, checkInTime, checkOutTime, bookingType } = req.body;
+    const { title, description, propertyType, city, address, pricePerNight, maxGuests, bedrooms, bathrooms, amenities, rules, checkInTime, checkOutTime, bookingType, promoSocial } = req.body;
     const user = await query(`SELECT first_name, last_name, phone, email FROM users WHERE id = $1`, [req.user.id]);
     const u = user.rows[0];
     const result = await query(
-      `INSERT INTO properties (owner_id, title, description, property_type, city, address, price_per_night, max_guests, bedrooms, bathrooms, amenities, rules, check_in_time, check_out_time, booking_type, owner_name, owner_phone, owner_email, is_active, is_approved)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,true,false) RETURNING *`,
-      [req.user.id, title, description, propertyType, city, address, pricePerNight, maxGuests, bedrooms, bathrooms, JSON.stringify(amenities || []), rules || null, checkInTime || '14:00', checkOutTime || '11:00', bookingType || 'online', `${u.first_name} ${u.last_name}`, u.phone, u.email]
+      `INSERT INTO properties (owner_id, title, description, property_type, city, address, price_per_night, max_guests, bedrooms, bathrooms, amenities, rules, check_in_time, check_out_time, booking_type, promo_social, owner_name, owner_phone, owner_email, is_active, is_approved)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,true,false) RETURNING *`,
+      [req.user.id, title, description, propertyType, city, address, pricePerNight, maxGuests, bedrooms, bathrooms,
+       JSON.stringify(amenities || []), rules || null, checkInTime || '14:00', checkOutTime || '11:00',
+       bookingType || 'online', promoSocial === true || promoSocial === 'true',
+       `${u.first_name} ${u.last_name}`, u.phone, u.email]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) { next(err); }
@@ -51,10 +58,13 @@ export const updateListing = async (req, res, next) => {
     const { id } = req.params;
     const existing = await query(`SELECT id FROM properties WHERE id = $1 AND owner_id = $2`, [id, req.user.id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Огласот не е пронајден' });
-    const { title, description, propertyType, city, address, pricePerNight, maxGuests, bedrooms, bathrooms, amenities, rules, checkInTime, checkOutTime, bookingType } = req.body;
+    const { title, description, propertyType, city, address, pricePerNight, maxGuests, bedrooms, bathrooms, amenities, rules, checkInTime, checkOutTime, bookingType, promoSocial } = req.body;
     const result = await query(
-      `UPDATE properties SET title=COALESCE($1,title), description=COALESCE($2,description), property_type=COALESCE($3,property_type), city=COALESCE($4,city), address=COALESCE($5,address), price_per_night=COALESCE($6,price_per_night), max_guests=COALESCE($7,max_guests), bedrooms=COALESCE($8,bedrooms), bathrooms=COALESCE($9,bathrooms), amenities=COALESCE($10,amenities), rules=COALESCE($11,rules), check_in_time=COALESCE($12,check_in_time), check_out_time=COALESCE($13,check_out_time), booking_type=COALESCE($14,booking_type), is_approved=false WHERE id=$15 AND owner_id=$16 RETURNING *`,
-      [title, description, propertyType, city, address, pricePerNight, maxGuests, bedrooms, bathrooms, amenities ? JSON.stringify(amenities) : null, rules, checkInTime, checkOutTime, bookingType, id, req.user.id]
+      `UPDATE properties SET title=COALESCE($1,title), description=COALESCE($2,description), property_type=COALESCE($3,property_type), city=COALESCE($4,city), address=COALESCE($5,address), price_per_night=COALESCE($6,price_per_night), max_guests=COALESCE($7,max_guests), bedrooms=COALESCE($8,bedrooms), bathrooms=COALESCE($9,bathrooms), amenities=COALESCE($10,amenities), rules=COALESCE($11,rules), check_in_time=COALESCE($12,check_in_time), check_out_time=COALESCE($13,check_out_time), booking_type=COALESCE($14,booking_type), promo_social=COALESCE($15,promo_social), is_approved=false WHERE id=$16 AND owner_id=$17 RETURNING *`,
+      [title, description, propertyType, city, address, pricePerNight, maxGuests, bedrooms, bathrooms,
+       amenities ? JSON.stringify(amenities) : null, rules, checkInTime, checkOutTime, bookingType,
+       promoSocial !== undefined ? (promoSocial === true || promoSocial === 'true') : null,
+       id, req.user.id]
     );
     res.json(result.rows[0]);
   } catch (err) { next(err); }
@@ -65,8 +75,11 @@ export const deleteListing = async (req, res, next) => {
     const { id } = req.params;
     const existing = await query(`SELECT id FROM properties WHERE id = $1 AND owner_id = $2`, [id, req.user.id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Огласот не е пронајден' });
-    const images = await query(`SELECT public_id FROM property_images WHERE property_id = $1`, [id]);
-    for (const img of images.rows) { if (img.public_id) deleteFile(img.public_id); }
+    const images = await query(`SELECT public_id, social_filename FROM property_images WHERE property_id = $1`, [id]);
+    for (const img of images.rows) {
+      if (img.public_id) deleteFile(img.public_id);
+      if (img.social_filename) deleteSocialImage(img.social_filename);
+    }
     await query(`DELETE FROM properties WHERE id = $1 AND owner_id = $2`, [id, req.user.id]);
     res.json({ message: 'Избришан' });
   } catch (err) { next(err); }
@@ -75,10 +88,14 @@ export const deleteListing = async (req, res, next) => {
 export const uploadImages = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const existing = await query(`SELECT id FROM properties WHERE id = $1 AND owner_id = $2`, [id, req.user.id]);
-    if (existing.rows.length === 0) return res.status(404).json({ error: 'Огласот не е пронајден' });
+    const propResult = await query(
+      `SELECT p.*, u.phone as user_phone FROM properties p LEFT JOIN users u ON p.owner_id = u.id WHERE p.id = $1 AND p.owner_id = $2`,
+      [id, req.user.id]
+    );
+    if (propResult.rows.length === 0) return res.status(404).json({ error: 'Огласот не е пронајден' });
     if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'Нема слики' });
 
+    const property = propResult.rows[0];
     const countRes = await query(`SELECT COUNT(*) FROM property_images WHERE property_id = $1`, [id]);
     const currentCount = parseInt(countRes.rows[0].count);
     const hasPrimary = await query(`SELECT id FROM property_images WHERE property_id = $1 AND is_primary = true`, [id]);
@@ -88,9 +105,26 @@ export const uploadImages = async (req, res, next) => {
       const file = req.files[i];
       const url = getImageUrl(req, file.filename);
       const isPrimary = hasPrimary.rows.length === 0 && i === 0;
+
+      let socialFilename = null;
+      let socialUrl = null;
+      try {
+        socialFilename = await createSocialImage({
+          sourceFilename: file.filename,
+          price: property.price_per_night,
+          phone: property.owner_phone || property.user_phone,
+          city: property.city,
+          propertyTitle: property.title,
+        });
+        if (socialFilename) socialUrl = getSocialImageUrl(req, socialFilename);
+      } catch (e) {
+        console.error('Social image error:', e.message);
+      }
+
       const r = await query(
-        `INSERT INTO property_images (property_id, url, public_id, is_primary, sort_order) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-        [id, url, file.filename, isPrimary, currentCount + i]
+        `INSERT INTO property_images (property_id, url, public_id, is_primary, sort_order, social_url, social_filename)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [id, url, file.filename, isPrimary, currentCount + i, socialUrl, socialFilename]
       );
       images.push(r.rows[0]);
     }
@@ -108,6 +142,7 @@ export const deleteImage = async (req, res, next) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Сликата не е пронајдена' });
     const img = result.rows[0];
     if (img.public_id) deleteFile(img.public_id);
+    if (img.social_filename) deleteSocialImage(img.social_filename);
     await query(`DELETE FROM property_images WHERE id = $1`, [imageId]);
     if (img.is_primary) {
       await query(`UPDATE property_images SET is_primary = true WHERE id = (SELECT id FROM property_images WHERE property_id = $1 ORDER BY sort_order LIMIT 1)`, [id]);

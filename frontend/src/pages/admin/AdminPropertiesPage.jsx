@@ -1,149 +1,102 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
-import { useAdminProperties, useApproveProperty } from '../../hooks/useAdmin';
-import { useDeleteProperty } from '../../hooks/useProperties';
-import { TableSkeleton } from '../../components/common/Loader';
+import { useAdminProperties, useApproveProperty, useDeleteAdminProperty } from '../../hooks/useAdmin';
+import { PageLoader } from '../../components/common/Loader';
 
-const TYPE_LABELS = {
-  apartment: 'Апартман', house: 'Куќа', villa: 'Вила',
-  studio: 'Студио', room: 'Соба', hostel: 'Хостел',
-};
+const TYPE_LABELS = { apartment: 'Апартман', house: 'Куќа', villa: 'Вила', studio: 'Студио', room: 'Соба', hostel: 'Хостел' };
 
 export default function AdminPropertiesPage() {
+  const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [approved, setApproved] = useState('');
-  const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useAdminProperties({
-    search: search || undefined,
-    approved: approved !== '' ? approved : undefined,
-    page,
-    limit: 20,
-  });
+  const params = {};
+  if (filter === 'pending') params.approved = 'false';
+  if (filter === 'approved') params.approved = 'true';
+  if (search) params.search = search;
 
+  const { data, isLoading } = useAdminProperties(params);
   const approveProperty = useApproveProperty();
-  const deleteProperty = useDeleteProperty();
+  const deleteProperty = useDeleteAdminProperty();
 
-  const totalPages = data ? Math.ceil(data.total / 20) : 1;
+  const properties = filter === 'promo'
+    ? data?.properties?.filter((p) => p.promo_social)
+    : data?.properties;
+
+  if (isLoading) return <PageLoader />;
+
+  const promoCount = data?.properties?.filter((p) => p.promo_social).length || 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="page-header">Огласи</h1>
-
-      <div className="flex flex-wrap gap-3 mb-6">
-        <input
-          type="text"
-          placeholder="Пребарај по наслов..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="input max-w-xs"
-        />
-        <select
-          value={approved}
-          onChange={(e) => { setApproved(e.target.value); setPage(1); }}
-          className="input w-auto"
-        >
-          <option value="">Сите</option>
-          <option value="false">Чекаат одобрување</option>
-          <option value="true">Одобрени</option>
-        </select>
-        {data && (
-          <span className="text-sm text-gray-500 self-center ml-auto">{data.total} огласи</span>
-        )}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Огласи</h1>
+        <span className="text-sm text-gray-400">{data?.total || 0} вкупно</span>
       </div>
 
-      <div className="card overflow-hidden">
-        {isLoading ? (
-          <div className="p-6"><TableSkeleton rows={8} cols={5} /></div>
+      <div className="flex gap-2 flex-wrap mb-6">
+        {[
+          { value: 'all', label: 'Сите' },
+          { value: 'pending', label: 'Чекаат одобрување' },
+          { value: 'approved', label: 'Одобрени' },
+          { value: 'promo', label: `📣 Социјални мрежи${promoCount > 0 ? ` (${promoCount})` : ''}` },
+        ].map(({ value, label }) => (
+          <button key={value} onClick={() => setFilter(value)}
+            className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
+              filter === value ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'
+            }`}>
+            {label}
+          </button>
+        ))}
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder="Пребарај..." className="border border-gray-200 rounded-full px-4 py-2 text-sm outline-none focus:border-gray-400 ml-auto" />
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        {!properties?.length ? (
+          <div className="text-center py-16 text-gray-400">Нема огласи</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  {['Оглас', 'Тип / Град', 'Сопственик', 'Цена', 'Статус', 'Акции'].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {data?.properties.map((prop) => (
-                  <tr key={prop.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {prop.primary_image ? (
-                          <img src={prop.primary_image} alt="" className="w-12 h-9 object-cover rounded-lg flex-shrink-0" />
-                        ) : (
-                          <div className="w-12 h-9 bg-gray-100 rounded-lg flex-shrink-0" />
-                        )}
-                        <div>
-                          <Link to={`/properties/${prop.id}`} className="font-medium text-gray-900 hover:text-primary-600 line-clamp-1">
-                            {prop.title}
-                          </Link>
-                          <p className="text-xs text-gray-400">{format(new Date(prop.created_at), 'dd.MM.yyyy')}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      <p>{TYPE_LABELS[prop.property_type] || prop.property_type}</p>
-                      <p className="text-xs text-gray-400">{prop.city}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{prop.owner_first_name} {prop.owner_last_name}</p>
-                      <p className="text-xs text-gray-400">{prop.owner_email}</p>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-navy-700">
-                      {parseInt(prop.price_per_night).toLocaleString()} МКД
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`badge ${prop.is_approved ? 'badge-green' : 'badge-yellow'}`}>
-                        {prop.is_approved ? 'Одобрен' : 'Чека'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1 flex-wrap">
-                        {!prop.is_approved ? (
-                          <button
-                            onClick={() => approveProperty.mutate({ id: prop.id, isApproved: true })}
-                            className="btn btn-primary btn-sm text-xs"
-                          >
-                            ✓ Одобри
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => approveProperty.mutate({ id: prop.id, isApproved: false })}
-                            className="btn btn-secondary btn-sm text-xs"
-                          >
-                            Одбиј
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            if (confirm(`Избриши го "${prop.title}"?`)) deleteProperty.mutate(prop.id);
-                          }}
-                          className="btn btn-danger btn-sm text-xs"
-                        >
-                          🗑
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="divide-y divide-gray-50">
+            {properties.map((p) => (
+              <div key={p.id} className="flex gap-4 p-5 hover:bg-gray-50 transition-colors">
+                {p.primary_image
+                  ? <img src={p.primary_image} alt="" className="w-20 h-16 rounded-xl object-cover flex-shrink-0" />
+                  : <div className="w-20 h-16 rounded-xl bg-gray-100 flex-shrink-0 flex items-center justify-center text-gray-300 text-xl">🏠</div>
+                }
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-2 mb-1 flex-wrap">
+                    <Link to={`/properties/${p.id}`} className="font-semibold text-gray-900 text-sm hover:text-brand-600 truncate">
+                      {p.title}
+                    </Link>
+                    {p.promo_social && <span className="badge bg-purple-100 text-purple-700 flex-shrink-0">📣 Промоција</span>}
+                    <span className={`badge flex-shrink-0 ${p.is_approved ? 'badge-green' : 'badge-yellow'}`}>
+                      {p.is_approved ? 'Одобрен' : 'Чека'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-1">📍 {p.city} · {TYPE_LABELS[p.property_type]} · {parseInt(p.price_per_night).toLocaleString()} МКД/ноќ</p>
+                  <p className="text-xs text-gray-400">👤 {p.owner_name} · {p.owner_phone} · {p.owner_email}</p>
+                </div>
+                <div className="flex flex-col gap-2 flex-shrink-0">
+                  {!p.is_approved ? (
+                    <button onClick={() => approveProperty.mutate({ id: p.id, isApproved: true })}
+                      disabled={approveProperty.isPending} className="btn-primary btn-sm rounded-lg text-xs px-3 py-1.5">
+                      ✓ Одобри
+                    </button>
+                  ) : (
+                    <button onClick={() => approveProperty.mutate({ id: p.id, isApproved: false })}
+                      disabled={approveProperty.isPending} className="btn-outline btn-sm rounded-lg text-xs px-3 py-1.5">
+                      Одбиј
+                    </button>
+                  )}
+                  <button onClick={() => { if (confirm(`Избриши "${p.title}"?`)) deleteProperty.mutate(p.id); }}
+                    className="btn-danger btn-sm rounded-lg text-xs px-3 py-1.5">
+                    🗑 Избриши
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
-
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-6">
-          <button disabled={page === 1} onClick={() => setPage(page - 1)} className="btn btn-secondary btn-sm disabled:opacity-40">←</button>
-          <span className="btn btn-secondary btn-sm">{page} / {totalPages}</span>
-          <button disabled={page === totalPages} onClick={() => setPage(page + 1)} className="btn btn-secondary btn-sm disabled:opacity-40">→</button>
-        </div>
-      )}
     </div>
   );
 }

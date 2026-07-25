@@ -31,17 +31,15 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminPropertiesPage from './pages/admin/AdminPropertiesPage';
 import AdminBookingsPage from './pages/admin/AdminBookingsPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminSocialImagesPage from './pages/admin/AdminSocialImagesPage';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
 
-// Scroll to top on every route change
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   return null;
 }
 
@@ -70,13 +68,11 @@ export default function App() {
       <BrowserRouter>
         <ScrollToTop />
         <Routes>
-          {/* Public */}
           <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />
           <Route path="/properties" element={<PublicLayout><PropertiesPage /></PublicLayout>} />
           <Route path="/properties/:id" element={<PublicLayout><PropertyDetailPage /></PublicLayout>} />
           <Route path="/list-property" element={<PublicLayout><ListPropertyPage /></PublicLayout>} />
 
-          {/* Auth */}
           <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
           <Route path="/owner/login" element={<Navigate to="/login" replace />} />
           <Route path="/admin/login" element={<Navigate to="/login" replace />} />
@@ -85,7 +81,6 @@ export default function App() {
           <Route path="/reset-password" element={<PublicLayout><ResetPasswordPage /></PublicLayout>} />
           <Route path="/verify-email" element={<PublicLayout><VerifyEmailPage /></PublicLayout>} />
 
-          {/* Owner dashboard */}
           <Route path="/owner" element={
             <DashboardFrame>
               <ProtectedRoute roles={['owner', 'admin']}>
@@ -101,7 +96,6 @@ export default function App() {
             <Route path="profile" element={<OwnerProfilePage />} />
           </Route>
 
-          {/* Admin panel */}
           <Route path="/admin" element={
             <DashboardFrame>
               <ProtectedRoute roles={['admin']}>
@@ -113,9 +107,9 @@ export default function App() {
             <Route path="properties" element={<AdminPropertiesPage />} />
             <Route path="bookings" element={<AdminBookingsPage />} />
             <Route path="users" element={<AdminUsersPage />} />
+            <Route path="social" element={<AdminSocialImagesPage />} />
           </Route>
 
-          {/* 404 */}
           <Route path="*" element={
             <PublicLayout>
               <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
@@ -129,14 +123,11 @@ export default function App() {
         </Routes>
       </BrowserRouter>
 
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-          style: { borderRadius: '12px', fontSize: '14px', maxWidth: '360px', fontFamily: 'inherit' },
-          success: { iconTheme: { primary: '#024fe0', secondary: '#fff' } },
-        }}
-      />
+      <Toaster position="top-right" toastOptions={{
+        duration: 4000,
+        style: { borderRadius: '12px', fontSize: '14px', maxWidth: '360px', fontFamily: 'inherit' },
+        success: { iconTheme: { primary: '#024fe0', secondary: '#fff' } },
+      }} />
     </QueryClientProvider>
   );
 }

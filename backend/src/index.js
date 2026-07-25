@@ -26,7 +26,12 @@ app.use(helmet({
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || origin === process.env.CLIENT_URL || origin.startsWith('http://192.168.') || origin.startsWith('http://localhost')) {
+    const allowed = [
+      process.env.CLIENT_URL,
+      'https://smestime.com',
+      'https://www.smestime.com',
+    ];
+    if (!origin || allowed.includes(origin) || origin.startsWith('http://192.168.') || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

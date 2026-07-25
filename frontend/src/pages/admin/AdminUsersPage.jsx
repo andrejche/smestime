@@ -1,49 +1,49 @@
-import { useAdminUsers } from '../../hooks/useAdmin';
+import { useAdminUsers, useToggleUserActive } from '../../hooks/useAdmin';
 import { PageLoader } from '../../components/common/Loader';
-import { format } from 'date-fns';
 
 export default function AdminUsersPage() {
-  const { data, isLoading } = useAdminUsers();
+  const { data: users, isLoading } = useAdminUsers();
+  const toggleUser = useToggleUserActive();
 
   if (isLoading) return <PageLoader />;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-ink mb-6">Admin корисници</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Корисници</h1>
+        <span className="text-sm text-gray-400">{users?.length || 0} вкупно</span>
+      </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-100">
-            <tr>
-              {['Корисник', 'Улога', 'Статус', 'Регистриран'].map((h) => (
-                <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {data?.users.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-5 py-4">
-                  <p className="font-medium text-ink">{user.first_name} {user.last_name}</p>
-                  <p className="text-xs text-gray-400">{user.email}</p>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="badge badge-blue">{user.role}</span>
-                </td>
-                <td className="px-5 py-4">
-                  <span className={`badge ${user.is_active ? 'badge-green' : 'badge-red'}`}>
-                    {user.is_active ? 'Активен' : 'Неактивен'}
-                  </span>
-                </td>
-                <td className="px-5 py-4 text-gray-400 text-xs">
-                  {format(new Date(user.created_at), 'dd.MM.yyyy')}
-                </td>
-              </tr>
+        {!users?.length ? (
+          <div className="text-center py-16 text-gray-400">Нема корисници</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {users.map((u) => (
+              <div key={u.id} className="flex items-center gap-4 p-5 hover:bg-gray-50 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-sm flex-shrink-0">
+                  {u.first_name?.[0]}{u.last_name?.[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-gray-900 text-sm">{u.first_name} {u.last_name}</p>
+                    <span className={`badge ${u.role === 'admin' ? 'badge-blue' : 'badge-gray'}`}>{u.role}</span>
+                    {!u.is_active && <span className="badge badge-red">Деактивиран</span>}
+                    {!u.email_verified && <span className="badge badge-yellow">Непотврден</span>}
+                  </div>
+                  <p className="text-xs text-gray-400">{u.email} · {u.phone || '—'}</p>
+                  <p className="text-xs text-gray-300">{new Date(u.created_at).toLocaleDateString('mk-MK')}</p>
+                </div>
+                {u.role !== 'admin' && (
+                  <button onClick={() => toggleUser.mutate(u.id)}
+                    className={`btn-sm rounded-lg text-xs px-3 py-1.5 ${u.is_active ? 'btn-outline' : 'btn-primary'}`}>
+                    {u.is_active ? 'Деактивирај' : 'Активирај'}
+                  </button>
+                )}
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
     </div>
   );
