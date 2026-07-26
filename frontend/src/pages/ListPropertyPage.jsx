@@ -97,7 +97,14 @@ export default function ListPropertyPage() {
     setAccountErrors({});
     try {
       if (accountMode === 'register') {
-        const res = await api.post('/auth/register', { firstName: accountForm.firstName, lastName: accountForm.lastName, email: accountForm.email, phone: accountForm.phone, password: accountForm.password });
+        const res = await api.post('/auth/register', {
+          firstName: accountForm.firstName,
+          lastName: accountForm.lastName,
+          email: accountForm.email,
+          phone: accountForm.phone,
+          password: accountForm.password,
+          skipVerification: true,
+        });
         setAuth(res.data.user, res.data.accessToken);
       } else {
         const res = await api.post('/auth/login', { email: accountForm.email, password: accountForm.password });
