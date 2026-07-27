@@ -9,10 +9,9 @@ export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const { setAuth } = useAuthStore();
-  const [status, setStatus] = useState('loading'); // loading | success | error
-  const [error, setError] = useState('');
-
   const navigate = useNavigate();
+  const [status, setStatus] = useState('loading');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!token) { setStatus('error'); setError('Невалиден линк'); return; }
@@ -25,8 +24,14 @@ export default function VerifyEmailPage() {
         setTimeout(() => navigate('/owner'), 2000);
       })
       .catch((err) => {
-        setStatus('error');
-        setError(err.response?.data?.error || 'Грешка при потврда');
+        const msg = err.response?.data?.error || 'Грешка при потврда';
+        // If already verified, treat as success
+        if (msg.includes('искористен') || msg.includes('веќе')) {
+          setStatus('already_verified');
+        } else {
+          setStatus('error');
+          setError(msg);
+        }
       });
   }, [token]);
 
@@ -45,22 +50,33 @@ export default function VerifyEmailPage() {
             </>
           )}
 
-        {status === 'success' && (
-          <>
-            <div className="text-5xl mb-4">✅</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Е-маилот е потврден!</h1>
-            <p className="text-gray-500 text-sm mb-6">Пренасочување кон контролна табла...</p>
-            <Spinner size="md" />
-          </>
-        )}
+          {status === 'success' && (
+            <>
+              <div className="text-5xl mb-4">✅</div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Е-маилот е потврден!</h1>
+              <p className="text-gray-500 text-sm mb-6">Пренасочување кон контролна табла...</p>
+              <Spinner size="md" />
+            </>
+          )}
+
+          {status === 'already_verified' && (
+            <>
+              <div className="text-5xl mb-4">✅</div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Сметката е активна!</h1>
+              <p className="text-gray-500 text-sm mb-6">Е-маилот е веќе потврден. Можеш да се најавиш.</p>
+              <Link to="/login" className="btn-primary rounded-xl px-6 py-3 text-sm font-bold w-full block">
+                Најави се →
+              </Link>
+            </>
+          )}
 
           {status === 'error' && (
             <>
               <div className="text-5xl mb-4">❌</div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">Грешка</h1>
               <p className="text-red-500 text-sm mb-6">{error}</p>
-              <Link to="/owner/register" className="btn-primary rounded-xl px-6 py-3 text-sm font-bold w-full block">
-                Регистрирај се повторно
+              <Link to="/login" className="btn-primary rounded-xl px-6 py-3 text-sm font-bold w-full block">
+                Најави се
               </Link>
             </>
           )}
@@ -68,4 +84,4 @@ export default function VerifyEmailPage() {
       </div>
     </div>
   );
-}
+};

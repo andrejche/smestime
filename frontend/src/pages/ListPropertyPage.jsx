@@ -103,7 +103,7 @@ export default function ListPropertyPage() {
           email: accountForm.email,
           phone: accountForm.phone,
           password: accountForm.password,
-          skipVerification: true,
+          skipVerification: true, // Get token immediately so listing can be saved
         });
         setAuth(res.data.user, res.data.accessToken);
       } else {
@@ -136,7 +136,9 @@ export default function ListPropertyPage() {
       if (selectedFiles.length > 0) {
         const formData = new FormData();
         selectedFiles.forEach((f) => formData.append('images', f));
-        await api.post(`/owner/listings/${res.data.id}/images`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.post(`/owner/listings/${res.data.id}/images`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
       }
       setSubmitted(true);
     } catch (err) {
@@ -154,7 +156,11 @@ export default function ListPropertyPage() {
         <div className="text-center max-w-md">
           <div className="text-6xl mb-6">⏳</div>
           <h1 className="text-2xl font-bold text-gray-900 mb-3">Огласот е поднесен!</h1>
-          <p className="text-gray-500 leading-relaxed mb-6">Твојот оглас е во преглед и ќе биде одобрен во рок од 24 часа.</p>
+          <p className="text-gray-500 leading-relaxed mb-4">Твојот оглас е во преглед и ќе биде одобрен во рок од 24 часа.</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-800">
+            <p className="font-semibold mb-1">📧 Потврди го е-маилот</p>
+            <p>Испративме е-маил за потврда. Кликни на линкот за да го активираш профилот.</p>
+          </div>
           <div className="flex gap-3 justify-center">
             <Link to="/owner" className="btn-primary rounded-xl px-6 py-3 font-semibold">Кон контролна табла →</Link>
             <Link to="/" className="btn-outline rounded-xl px-6 py-3 font-semibold">Почетна</Link>
@@ -237,11 +243,9 @@ export default function ListPropertyPage() {
                 </button>
               </div>
             </div>
-            {/* Promo social checkbox */}
             <div className="border border-gray-200 rounded-xl p-4">
               <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" checked={form.promoSocial} onChange={(e) => setField('promoSocial', e.target.checked)}
-                  className="w-5 h-5 accent-brand-500 mt-0.5 flex-shrink-0" />
+                <input type="checkbox" checked={form.promoSocial} onChange={(e) => setField('promoSocial', e.target.checked)} className="w-5 h-5 accent-brand-500 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-semibold text-gray-900 text-sm">Бесплатна промоција на социјални мрежи</p>
                   <p className="text-xs text-gray-500 mt-1">Сакам мојот оглас да биде бесплатно промовиран на социјалните мрежи како Instagram, TikTok и друго.</p>
@@ -276,7 +280,7 @@ export default function ListPropertyPage() {
               className="border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-all">
               <div className="text-4xl mb-3">📷</div>
               <p className="text-sm font-semibold text-gray-600">Кликни за да додадеш слики</p>
-              <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP · макс. 10MB · до 20 слики</p>
+              <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP · макс. 10MB по слика · до 20 слики</p>
               <input id="img-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
             </div>
             {previews.length > 0 && (
@@ -393,4 +397,4 @@ export default function ListPropertyPage() {
       </div>
     </div>
   );
-}
+};
