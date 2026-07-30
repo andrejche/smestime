@@ -33,6 +33,7 @@ export default function ListPropertyPage() {
   const [loading, setLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
+  const [primaryIndex, setPrimaryIndex] = useState(0);
 
   const [form, setForm] = useState({
     title: '', description: '', propertyType: 'apartment',
@@ -54,12 +55,22 @@ export default function ListPropertyPage() {
   const handleFiles = (files) => {
     const arr = Array.from(files).filter((f) => f.type.startsWith('image/')).slice(0, 20);
     setSelectedFiles(arr);
+    setPrimaryIndex(0);
     setPreviews([]);
     arr.forEach((f) => {
       const reader = new FileReader();
       reader.onload = (e) => setPreviews((p) => [...p, e.target.result]);
       reader.readAsDataURL(f);
     });
+  };
+
+  const removeFile = (i) => {
+    const newFiles = selectedFiles.filter((_, idx) => idx !== i);
+    const newPreviews = previews.filter((_, idx) => idx !== i);
+    setSelectedFiles(newFiles);
+    setPreviews(newPreviews);
+    if (primaryIndex === i) setPrimaryIndex(0);
+    else if (primaryIndex > i) setPrimaryIndex(primaryIndex - 1);
   };
 
   const stepLabels = isAuthenticated ? ['Основни инфо', 'Локација и цена', 'Слики'] : STEPS;
@@ -98,12 +109,9 @@ export default function ListPropertyPage() {
     try {
       if (accountMode === 'register') {
         const res = await api.post('/auth/register', {
-          firstName: accountForm.firstName,
-          lastName: accountForm.lastName,
-          email: accountForm.email,
-          phone: accountForm.phone,
-          password: accountForm.password,
-          skipVerification: true, // Get token immediately so listing can be saved
+          firstName: accountForm.firstName, lastName: accountForm.lastName,
+          email: accountForm.email, phone: accountForm.phone, password: accountForm.password,
+          skipVerification: true,
         });
         setAuth(res.data.user, res.data.accessToken);
       } else {
@@ -134,8 +142,14 @@ export default function ListPropertyPage() {
         amenities: form.amenities, bookingType: form.bookingType, promoSocial: form.promoSocial,
       });
       if (selectedFiles.length > 0) {
+        // Reorder files so primary is first
+        const ordered = [...selectedFiles];
+        if (primaryIndex !== 0) {
+          const [primary] = ordered.splice(primaryIndex, 1);
+          ordered.unshift(primary);
+        }
         const formData = new FormData();
-        selectedFiles.forEach((f) => formData.append('images', f));
+        ordered.forEach((f) => formData.append('images', f));
         await api.post(`/owner/listings/${res.data.id}/images`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
@@ -156,11 +170,7 @@ export default function ListPropertyPage() {
         <div className="text-center max-w-md">
           <div className="text-6xl mb-6">⏳</div>
           <h1 className="text-2xl font-bold text-gray-900 mb-3">Огласот е поднесен!</h1>
-          <p className="text-gray-500 leading-relaxed mb-4">Твојот оглас е во преглед и ќе биде одобрен во рок од 24 часа.</p>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-800">
-            <p className="font-semibold mb-1">📧 Потврди го е-маилот</p>
-            <p>Испративме е-маил за потврда. Кликни на линкот за да го активираш профилот.</p>
-          </div>
+          <p className="text-gray-500 leading-relaxed mb-6">Твојот оглас е во преглед и ќе биде одобрен во рок од 24 часа.</p>
           <div className="flex gap-3 justify-center">
             <Link to="/owner" className="btn-primary rounded-xl px-6 py-3 font-semibold">Кон контролна табла →</Link>
             <Link to="/" className="btn-outline rounded-xl px-6 py-3 font-semibold">Почетна</Link>
@@ -273,26 +283,46 @@ export default function ListPropertyPage() {
           </>
         )}
 
-        {/* Step 2 */}
+        {/* Step 2 — Images with primary selection */}
         {step === 2 && (
           <>
             <div onClick={() => document.getElementById('img-input').click()}
-              className="border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-all">
+              className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-all">
               <div className="text-4xl mb-3">📷</div>
               <p className="text-sm font-semibold text-gray-600">Кликни за да додадеш слики</p>
-              <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP · макс. 10MB по слика · до 20 слики</p>
+              <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP · макс. 10MB · до 20 слики</p>
               <input id="img-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
             </div>
+
             {previews.length > 0 && (
               <div>
-                <p className="text-sm font-semibold text-gray-900 mb-2">{previews.length} слики избрани</p>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                <p className="text-sm font-semibold text-gray-900 mb-1">{previews.length} слики · <span className="text-gray-400 font-normal">Кликни на слика за насловна</span></p>
+                <div className="grid grid-cols-3 gap-2">
                   {previews.map((src, i) => (
-                    <div key={i} className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative">
+                    <div key={i} className="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 cursor-pointer"
+                      onClick={() => setPrimaryIndex(i)}>
                       <img src={src} alt="" className="w-full h-full object-cover" />
-                      {i === 0 && <span className="absolute bottom-1 left-1 bg-brand-500 text-white text-xs px-1.5 py-0.5 rounded-md font-medium">Насловна</span>}
+                      {/* Primary indicator */}
+                      {i === primaryIndex && (
+                        <div className="absolute inset-0 border-3 border-brand-500 rounded-xl">
+                          <span className="absolute bottom-1 left-1 bg-brand-500 text-white text-xs px-1.5 py-0.5 rounded-md font-medium">⭐ Насловна</span>
+                        </div>
+                      )}
+                      {/* Remove button */}
+                      <button type="button"
+                        onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                        ✕
+                      </button>
                     </div>
                   ))}
+                  {/* Add more */}
+                  {previews.length < 20 && (
+                    <div onClick={() => document.getElementById('img-input').click()}
+                      className="aspect-square rounded-xl border-2 border-dashed border-gray-200 hover:border-brand-400 flex items-center justify-center cursor-pointer transition-all text-2xl text-gray-300 hover:text-brand-400">
+                      +
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -397,4 +427,4 @@ export default function ListPropertyPage() {
       </div>
     </div>
   );
-};
+}

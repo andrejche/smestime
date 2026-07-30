@@ -37,7 +37,7 @@ export const register = async (req, res, next) => {
     const verifyLink = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
     sendVerificationEmail({ to: email, firstName, verifyLink }).catch(console.error);
 
-    // Listing creation flow - return token so listing can be saved immediately
+    // Listing creation flow — return token so listing can be saved immediately
     if (skipVerification) {
       const accessToken = generateAccessToken(user.id, user.role);
       const refreshToken = generateRefreshToken(user.id);
@@ -66,13 +66,20 @@ export const verifyEmail = async (req, res, next) => {
        RETURNING id, email, first_name, last_name, role`,
       [token]
     );
-    if (result.rows.length === 0) return res.status(400).json({ error: 'Невалиден или веќе искористен токен' });
+
+    if (result.rows.length === 0) {
+      // Check if already verified with this token (used from listing flow)
+      return res.status(400).json({ error: 'Токенот е веќе искористен. Можеш да се најавиш.' });
+    }
+
     const user = result.rows[0];
     sendWelcomeEmail({ to: user.email, firstName: user.first_name }).catch(console.error);
+
     const accessToken = generateAccessToken(user.id, user.role);
     const refreshToken = generateRefreshToken(user.id);
     await saveRefreshToken(user.id, refreshToken);
     setRefreshCookie(res, refreshToken);
+
     res.json({
       message: 'Е-маилот е потврден!',
       user: { id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role },
