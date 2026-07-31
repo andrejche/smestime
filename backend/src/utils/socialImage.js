@@ -28,35 +28,35 @@ export const createSocialImage = async ({ sourceFilename, price, phone, city, pr
       .resize(W, H, { fit: 'cover', position: 'center' })
       .toBuffer();
 
-    const priceText = price ? `${parseInt(price).toLocaleString()} МКД` : '';
-    const phoneText = phone ? `${phone}` : '';
-    const cityText = city ? `📍 ${city}, Македонија` : '';
+    const priceText = price ? `${parseInt(price).toLocaleString()} MKD` : '';
+    const phoneText = phone ? `Tel: ${phone}` : '';
+    const cityText = city ? `${city}, Makedonija` : '';
 
     const svg = `
       <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="black" stop-opacity="0"/>
-            <stop offset="45%" stop-color="black" stop-opacity="0.6"/>
+            <stop offset="40%" stop-color="black" stop-opacity="0.55"/>
             <stop offset="100%" stop-color="black" stop-opacity="0.93"/>
           </linearGradient>
         </defs>
         <rect width="${W}" height="${H}" fill="url(#grad)"/>
 
         <!-- smestime.com top right -->
-        <text x="${W - 50}" y="65" font-family="Arial Black, Arial" font-size="34" fill="white" font-weight="900" text-anchor="end" opacity="0.9">smestime.com</text>
+        <text x="${W - 50}" y="65" font-family="DejaVu Sans,Arial,sans-serif" font-size="34" fill="white" font-weight="bold" text-anchor="end" opacity="0.9">smestime.com</text>
 
         <!-- City -->
-        ${cityText ? `<text x="${W / 2}" y="${H - 220}" font-family="Arial, sans-serif" font-size="36" fill="rgba(255,255,255,0.85)" text-anchor="middle">${cityText}</text>` : ''}
+        ${cityText ? `<text x="${W / 2}" y="${H - 250}" font-family="DejaVu Sans,Arial,sans-serif" font-size="38" fill="rgba(255,255,255,0.85)" text-anchor="middle">${cityText}</text>` : ''}
 
-        <!-- Price -->
-        <text x="${W / 2}" y="${H - 140}" font-family="Arial Black, Arial" font-weight="900" font-size="96" fill="white" text-anchor="middle">${priceText}</text>
+        <!-- Price big -->
+        <text x="${W / 2}" y="${H - 150}" font-family="DejaVu Sans,Arial,sans-serif" font-weight="bold" font-size="100" fill="white" text-anchor="middle">${priceText}</text>
 
         <!-- Per night -->
-        <text x="${W / 2}" y="${H - 80}" font-family="Arial, sans-serif" font-size="40" fill="rgba(255,255,255,0.8)" text-anchor="middle">по ноќ</text>
+        <text x="${W / 2}" y="${H - 80}" font-family="DejaVu Sans,Arial,sans-serif" font-size="42" fill="rgba(255,255,255,0.75)" text-anchor="middle">po nok</text>
 
         <!-- Phone -->
-        <text x="${W / 2}" y="${H - 30}" font-family="Arial, sans-serif" font-size="44" fill="white" font-weight="700" text-anchor="middle">📞 ${phoneText}</text>
+        <text x="${W / 2}" y="${H - 25}" font-family="DejaVu Sans,Arial,sans-serif" font-size="46" fill="white" font-weight="bold" text-anchor="middle">${phoneText}</text>
       </svg>
     `;
 

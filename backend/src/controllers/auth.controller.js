@@ -181,6 +181,7 @@ export const forgotPassword = async (req, res, next) => {
     await query(`INSERT INTO password_resets (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '1 hour')`, [userId, token]);
     const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
     await sendPasswordReset({ to: email, resetLink });
+    
     res.json({ message: 'Линкот е испратен на твојот е-маил.' });
   } catch (err) { next(err); }
 };
