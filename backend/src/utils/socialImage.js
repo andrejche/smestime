@@ -53,7 +53,7 @@ export const createSocialImage = async ({ sourceFilename, price, phone, city, pr
         <text x="${W / 2}" y="${H - 150}" font-family="DejaVu Sans,Arial,sans-serif" font-weight="bold" font-size="100" fill="white" text-anchor="middle">${priceText}</text>
 
         <!-- Per night -->
-        <text x="${W / 2}" y="${H - 80}" font-family="DejaVu Sans,Arial,sans-serif" font-size="42" fill="rgba(255,255,255,0.75)" text-anchor="middle">по ноќ</text>
+        <text x="${W / 2}" y="${H - 60}" font-family="DejaVu Sans,Arial,sans-serif" font-size="42" fill="rgba(255,255,255,0.75)" text-anchor="middle">по ноќ</text>
 
         <!-- Phone -->
         <text x="${W / 2}" y="${H - 25}" font-family="DejaVu Sans,Arial,sans-serif" font-size="46" fill="white" font-weight="bold" text-anchor="middle">${phoneText}</text>
