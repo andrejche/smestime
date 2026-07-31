@@ -13,7 +13,46 @@ import imgStruga from '../assets/cities/struga.jpg';
 import imgKrushevo from '../assets/cities/krushevo.jpg';
 import imgHostCta from '../assets/host-cta.jpg';
 
-const CITIES_MK = ['Охрид','Скопје','Струга','Битола','Прилеп','Тетово','Крушево','Маврово','Гевгелија','Куманово','Кавадарци','Струмица','Штип','Велес','Кичево','Кочани','Дебар','Радовиш','Неготино','Делчево','Виница','Ресен','Берово','Кратово','Пробиштип','Богданци','Македонска Каменица','Валандово','Македонски Брод','Демир Капија','Пехчево','Демир Хисар'];
+const CITIES_MK = [
+  'Охрид',
+  'Скопје',
+  'Струга',
+  'Битола',
+  'Прилеп',
+  'Тетово',
+  'Гостивар',
+  'Крива Паланка',
+  'Свети Николе',
+  'Крушево',
+  'Маврово',
+  'Попова Шапка',
+  'Дојран',
+  'Гевгелија',
+  'Куманово',
+  'Кавадарци',
+  'Струмица',
+  'Штип',
+  'Велес',
+  'Кичево',
+  'Кочани',
+  'Дебар',
+  'Радовиш',
+  'Неготино',
+  'Делчево',
+  'Виница',
+  'Ресен',
+  'Берово',
+  'Кратово',
+  'Пробиштип',
+  'Богданци',
+  'Македонска Каменица',
+  'Валандово',
+  'Македонски Брод',
+  'Демир Капија',
+  'Пехчево',
+  'Демир Хисар'
+];
+
 const CITIES_LATIN = ['Ohrid','Skopje','Struga','Bitola','Tetovo','Krushevo','Mavrovo','Gevgelija','Kumanovo','Kavadarci','Strumica','Shtip','Veles','Kichevo','Kochani','Debar','Radovish','Negotino','Delchevo','Vinica','Resen','Berovo','Kratovo','Probistip','Bogdanci','Makedonska Kamenica','Valandovo','Makedonski Brod','Demir Kapija','Pehchevo','Demir Hisar'];
 
 const TOP_CITIES_MK = [
