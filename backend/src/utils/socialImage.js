@@ -30,7 +30,7 @@ export const createSocialImage = async ({ sourceFilename, price, phone, city, pr
 
     const priceText = price ? `${parseInt(price).toLocaleString()} MKD` : '';
     const phoneText = phone ? `Тел: ${phone}` : '';
-    const cityText = city ? `${city}, Makedonija` : '';
+    const cityText = city ? `${city}, Македонија` : '';
 
     const svg = `
       <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
