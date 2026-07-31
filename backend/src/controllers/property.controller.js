@@ -3,7 +3,7 @@ import { cloudinary } from '../config/cloudinary.js';
 
 const latinToCyrillic = {
   'ohrid': 'Охрид', 'skopje': 'Скопје', 'struga': 'Струга',
-  'bitola': 'Битола', 'tetovo': 'Тетово', 'krushevo': 'Крушево',
+  'bitola': 'Битола', 'prilep': 'Прилеп', 'tetovo': 'Тетово', 'krushevo': 'Крушево',
   'mavrovo': 'Маврово', 'gevgelija': 'Гевгелија', 'kumanovo': 'Куманово',
   'kavadarci': 'Кавадарци', 'strumica': 'Струмица', 'shtip': 'Штип',
   'veles': 'Велес', 'kichevo': 'Кичево', 'kochani': 'Кочани',
