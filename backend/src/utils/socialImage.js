@@ -47,13 +47,13 @@ export const createSocialImage = async ({ sourceFilename, price, phone, city, pr
         <text x="${W - 50}" y="65" font-family="DejaVu Sans,Arial,sans-serif" font-size="34" fill="white" font-weight="bold" text-anchor="end" opacity="0.9">smestime.com</text>
 
         <!-- City -->
-        ${cityText ? `<text x="${W / 2}" y="${H - 250}" font-family="DejaVu Sans,Arial,sans-serif" font-size="38" fill="rgba(255,255,255,0.85)" text-anchor="middle">${cityText}</text>` : ''}
+        ${cityText ? `<text x="${W / 2}" y="${H - 230}" font-family="DejaVu Sans,Arial,sans-serif" font-size="38" fill="rgba(255,255,255,0.85)" text-anchor="middle">${cityText}</text>` : ''}
 
         <!-- Price big -->
-        <text x="${W / 2}" y="${H - 150}" font-family="DejaVu Sans,Arial,sans-serif" font-weight="bold" font-size="100" fill="white" text-anchor="middle">${priceText}</text>
+        <text x="${W / 2}" y="${H - 130}" font-family="DejaVu Sans,Arial,sans-serif" font-weight="bold" font-size="100" fill="white" text-anchor="middle">${priceText}</text>
 
         <!-- Per night -->
-        <text x="${W / 2}" y="${H - 60}" font-family="DejaVu Sans,Arial,sans-serif" font-size="42" fill="rgba(255,255,255,0.75)" text-anchor="middle">по ноќ</text>
+        <text x="${W / 2}" y="${H - 80}" font-family="DejaVu Sans,Arial,sans-serif" font-size="42" fill="rgba(255,255,255,0.75)" text-anchor="middle">по ноќ</text>
 
         <!-- Phone -->
         <text x="${W / 2}" y="${H - 25}" font-family="DejaVu Sans,Arial,sans-serif" font-size="46" fill="white" font-weight="bold" text-anchor="middle">${phoneText}</text>
