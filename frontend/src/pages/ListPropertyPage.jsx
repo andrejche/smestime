@@ -53,6 +53,9 @@ const PROPERTY_TYPES = [
   { value: 'studio', label: '🛋️ Студио' },
   { value: 'room', label: '🛏️ Соба' },
   { value: 'hostel', label: '🏨 Хостел' },
+  { value: 'office', label: '💼 Деловен простор' },
+  { value: 'shop', label: '🏪 Дуќан' },
+  { value: 'other', label: '📦 Друго' },
 ];
 const STEPS = ['Основни инфо', 'Локација и цена', 'Слики', 'Сметка'];
 
