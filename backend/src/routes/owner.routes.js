@@ -20,7 +20,7 @@ router.get('/listings/:id', getMyListing);
 router.post('/listings', [
   body('title').trim().notEmpty(),
   body('description').trim().notEmpty(),
-  body('propertyType').isIn(['apartment','house','room','villa','studio','hostel']),
+  body('propertyType').isIn(['apartment','house','room','villa','studio','hostel','office','shop','other']),
   body('city').trim().notEmpty(),
   body('address').trim().notEmpty(),
   body('pricePerNight').isFloat({ min: 0 }),
