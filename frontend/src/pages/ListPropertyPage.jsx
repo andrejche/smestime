@@ -81,7 +81,7 @@ export default function ListPropertyPage() {
     title: '', description: '', propertyType: 'apartment',
     city: '', address: '', pricePerNight: '',
     maxGuests: 2, bedrooms: 1, bathrooms: 1,
-    amenities: [], bookingType: 'online', promoSocial: false,
+    amenities: [], bookingType: 'online', promoSocial: false, listingPurpose: 'izdava',
   });
 
   const [accountMode, setAccountMode] = useState('register');
@@ -259,11 +259,13 @@ export default function ListPropertyPage() {
             </div>
             <input type="text" value={form.title} onChange={(e) => setField('title', e.target.value)} placeholder="Наслов на огласот" className="input" maxLength={100} />
             <textarea value={form.description} onChange={(e) => setField('description', e.target.value)} placeholder="Опис на просторот..." rows={4} className="input resize-none" />
-            <div className="grid grid-cols-3 gap-3">
-              <div><p className="text-xs text-gray-500 mb-1">Гости (макс)</p><input type="number" min="1" max="50" value={form.maxGuests} onChange={(e) => setField('maxGuests', e.target.value)} className="input" /></div>
-              <div><p className="text-xs text-gray-500 mb-1">Спални</p><input type="number" min="0" max="20" value={form.bedrooms} onChange={(e) => setField('bedrooms', e.target.value)} className="input" /></div>
-              <div><p className="text-xs text-gray-500 mb-1">Бањи</p><input type="number" min="0" max="10" value={form.bathrooms} onChange={(e) => setField('bathrooms', e.target.value)} className="input" /></div>
-            </div>
+            {!['office', 'shop', 'other', 'studio'].includes(form.propertyType) && (
+              <div className="grid grid-cols-3 gap-3">
+                <div><p className="text-xs text-gray-500 mb-1">Гости (макс)</p><input type="number" min="1" max="50" value={form.maxGuests} onChange={(e) => setField('maxGuests', e.target.value)} className="input" /></div>
+                <div><p className="text-xs text-gray-500 mb-1">Спални</p><input type="number" min="0" max="20" value={form.bedrooms} onChange={(e) => setField('bedrooms', e.target.value)} className="input" /></div>
+                <div><p className="text-xs text-gray-500 mb-1">Бањи</p><input type="number" min="0" max="10" value={form.bathrooms} onChange={(e) => setField('bathrooms', e.target.value)} className="input" /></div>
+              </div>
+            )}
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-3">Погодности</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

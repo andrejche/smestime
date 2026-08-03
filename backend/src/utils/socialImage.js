@@ -24,9 +24,10 @@ export const createSocialImage = async ({ sourceFilename, price, phone, city, pr
   const H = 1080;
 
   try {
-    const baseImage = await sharp(sourcePath)
-      .resize(W, H, { fit: 'cover', position: 'center' })
-      .toBuffer();
+  const baseImage = await sharp(sourcePath)
+    .rotate() // auto-rotate based on EXIF orientation
+    .resize(W, H, { fit: 'cover', position: 'center' })
+    .toBuffer();
 
     const priceText = price ? `${parseInt(price).toLocaleString()} MKD` : '';
     const phoneText = phone ? `Тел: ${phone}` : '';
